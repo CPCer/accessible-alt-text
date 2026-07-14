@@ -910,17 +910,74 @@
   <p>基于 AI 的 PDF 图片替代文本自动生成与编辑工具，让每一位读者都能平等获取文档中的视觉信息</p>
 </header>
 
+<!-- ========== SECTION 0: 文件上传 ========== -->
+<section class="section section-anchor" id="section-upload">
+  <div class="section-header">
+    <span class="section-step" style="background:var(--success);">0</span>
+    <h2 class="section-title">上传 PDF 文件</h2>
+    <span class="section-desc" id="uploadStatus">选择或拖拽 PDF 文件</span>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <div id="uploadArea" style="border:2px dashed var(--gray-300);border-radius:var(--radius-md);padding:48px 24px;text-align:center;transition:all var(--transition);cursor:pointer;background:var(--gray-50);">
+        <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <h3 style="font-size:18px;font-weight:600;color:var(--gray-800);margin-bottom:8px;">点击或拖拽 PDF 文件到此处</h3>
+        <p style="font-size:14px;color:var(--gray-500);margin-bottom:20px;">支持 .pdf 格式，文件大小不限</p>
+        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          选择文件
+        </button>
+        <input type="file" id="fileInput" accept=".pdf" style="display:none;" onchange="handleFileSelect(event)">
+      </div>
+      <div id="uploadedFileInfo" style="display:none;margin-top:20px;padding:16px;background:var(--success-bg);border-radius:var(--radius);border:1px solid var(--success);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div style="flex:1;">
+            <div style="font-weight:600;color:var(--gray-800);" id="fileName"></div>
+            <div style="font-size:13px;color:var(--gray-600);" id="fileSize"></div>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="clearUpload()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            移除
+          </button>
+        </div>
+      </div>
+      <div class="btn-group" style="margin-top:20px;">
+        <button class="btn btn-primary" id="btnUpload" onclick="uploadFile()" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          上传并处理
+        </button>
+        <button class="btn btn-outline" onclick="loadDemoData()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><play x1="5" y1="3" x2="19" y2="12" x3="5" y3="21" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          加载示例数据
+        </button>
+      </div>
+      <div class="progress-bar" id="uploadProgress">
+        <div class="progress-track">
+          <div class="progress-fill" id="uploadProgressFill"></div>
+        </div>
+        <div class="progress-label">
+          <span id="uploadProgressText">准备上传...</span>
+          <span id="uploadProgressPercent">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ========== SECTION 1: PDF 展示 ========== -->
 <section class="section section-anchor" id="section-pdf">
   <div class="section-header">
     <span class="section-step">1</span>
     <h2 class="section-title">PDF 页面预览</h2>
-    <span class="section-desc">共 3 页</span>
+    <span class="section-desc" id="pageCountLabel">共 0 页</span>
   </div>
   <div class="card">
     <div class="card-header">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      2025年度产品报告.pdf
+      <span id="currentFileName">请上传 PDF 文件</span>
       <span style="margin-left:auto;font-weight:400;color:var(--gray-500);font-size:13px;">点击页面查看大图</span>
     </div>
     <div class="card-body">
@@ -1165,7 +1222,7 @@
   <div class="section-header">
     <span class="section-step">5</span>
     <h2 class="section-title">导出替代文本</h2>
-    <span class="section-desc">JSON 格式导出</span>
+    <span class="section-desc">JSON 格式导出 / PDF 下载</span>
   </div>
   <div class="card">
     <div class="card-header">
@@ -1182,6 +1239,10 @@
         <button class="btn btn-primary" onclick="downloadExport()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           下载 JSON
+        </button>
+        <button class="btn btn-success" id="btnDownloadPdf" onclick="downloadProcessedPdf()" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          下载处理后 PDF
         </button>
       </div>
     </div>
@@ -1290,9 +1351,24 @@
 
 <script>
 // ============================================================
-// DATA
+// CONFIG
 // ============================================================
-const pdfData = [
+const API_BASE = 'http://localhost:5000/api';
+
+// ============================================================
+// STATE
+// ============================================================
+let selectedFile = null;
+let currentTaskId = null;
+let pdfData = [];
+let allImages = [];
+let readAloudTimer = null;
+let readAloudRunning = false;
+
+// ============================================================
+// DEMO DATA
+// ============================================================
+const demoPdfData = [
   {
     id: 1,
     title: '产品销量趋势图',
@@ -1320,17 +1396,188 @@ const pdfData = [
   }
 ];
 
-// Flatten images
-let allImages = [];
-pdfData.forEach(page => {
-  page.images.forEach(img => {
-    allImages.push(img);
-  });
-});
+// ============================================================
+// UPLOAD FUNCTIONS
+// ============================================================
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) {
+    selectedFile = file;
+    showFileInfo(file);
+  }
+}
 
-// Read-aloud state
-let readAloudTimer = null;
-let readAloudRunning = false;
+function showFileInfo(file) {
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatFileSize(file.size);
+  document.getElementById('uploadedFileInfo').style.display = 'block';
+  document.getElementById('uploadArea').style.display = 'none';
+  document.getElementById('btnUpload').disabled = false;
+  document.getElementById('uploadStatus').textContent = '文件已选择';
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+function clearUpload() {
+  selectedFile = null;
+  currentTaskId = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadedFileInfo').style.display = 'none';
+  document.getElementById('uploadArea').style.display = 'block';
+  document.getElementById('btnUpload').disabled = true;
+  document.getElementById('uploadStatus').textContent = '选择或拖拽 PDF 文件';
+  document.getElementById('currentFileName').textContent = '请上传 PDF 文件';
+}
+
+function uploadFile() {
+  if (!selectedFile) return;
+
+  const btn = document.getElementById('btnUpload');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 上传中...';
+
+  const progress = document.getElementById('uploadProgress');
+  const fill = document.getElementById('uploadProgressFill');
+  const text = document.getElementById('uploadProgressText');
+  const percent = document.getElementById('uploadProgressPercent');
+  progress.classList.add('active');
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  fetch(`${API_BASE}/upload`, {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      showToast(data.error);
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 上传并处理';
+      progress.classList.remove('active');
+      return;
+    }
+
+    currentTaskId = data.task_id;
+    fill.style.width = '50%';
+    percent.textContent = '50%';
+    text.textContent = '文件上传成功，正在处理...';
+
+    processPdf(data.task_id);
+  })
+  .catch(error => {
+    showToast('上传失败: ' + error.message);
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 上传并处理';
+    progress.classList.remove('active');
+  });
+}
+
+function processPdf(taskId) {
+  fetch(`${API_BASE}/process`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task_id: taskId })
+  })
+  .then(response => response.json())
+  .then(data => {
+    const progress = document.getElementById('uploadProgress');
+    const fill = document.getElementById('uploadProgressFill');
+    const text = document.getElementById('uploadProgressText');
+    const percent = document.getElementById('uploadProgressPercent');
+
+    if (data.error) {
+      showToast('处理失败: ' + data.error);
+      progress.classList.remove('active');
+      return;
+    }
+
+    fill.style.width = '100%';
+    percent.textContent = '100%';
+    text.textContent = '处理完成';
+
+    setTimeout(() => {
+      progress.classList.remove('active');
+      loadResults(taskId);
+    }, 1000);
+  })
+  .catch(error => {
+    showToast('处理失败: ' + error.message);
+    document.getElementById('uploadProgress').classList.remove('active');
+  });
+}
+
+function loadResults(taskId) {
+  fetch(`${API_BASE}/results/${taskId}`)
+  .then(response => response.json())
+  .then(data => {
+    if (data.error) {
+      showToast(data.error);
+      return;
+    }
+
+    document.getElementById('currentFileName').textContent = data.filename;
+
+    const pages = {};
+    data.images.forEach(img => {
+      if (!pages[img.page_num]) {
+        pages[img.page_num] = {
+          id: img.page_num,
+          title: `第 ${img.page_num} 页`,
+          desc: `包含 ${img.width}x${img.height} 像素的图片`,
+          images: []
+        };
+      }
+      pages[img.page_num].images.push({
+        id: img.id,
+        name: img.filename,
+        page: img.page_num,
+        type: img.source === 'xobject' ? '信息图' : '页面截图',
+        alt: img.alt_text,
+        decorative: img.decorative,
+        generated: img.generated
+      });
+    });
+
+    pdfData = Object.values(pages);
+    allImages = [];
+    pdfData.forEach(page => {
+      page.images.forEach(img => {
+        allImages.push(img);
+      });
+    });
+
+    renderPDFPages();
+    renderImageList();
+    updateExportPreview();
+    document.getElementById('btnDownloadPdf').disabled = false;
+    showToast(`处理完成！共识别 ${allImages.length} 张图片`);
+  })
+  .catch(error => {
+    showToast('加载结果失败: ' + error.message);
+  });
+}
+
+function loadDemoData() {
+  pdfData = JSON.parse(JSON.stringify(demoPdfData));
+  allImages = [];
+  pdfData.forEach(page => {
+    page.images.forEach(img => {
+      allImages.push(img);
+    });
+  });
+
+  document.getElementById('currentFileName').textContent = '2025年度产品报告.pdf';
+  renderPDFPages();
+  renderImageList();
+  updateExportPreview();
+  showToast('已加载示例数据');
+}
 
 // ============================================================
 // SVG Chart Generators
@@ -1556,10 +1803,7 @@ function drawArchDiagram(canvas) {
 // INIT
 // ============================================================
 function init() {
-  renderPDFPages();
-  renderImageList();
-  updateExportPreview();
-  updateCounts();
+  loadDemoData();
 }
 
 // ============================================================
@@ -1568,6 +1812,8 @@ function init() {
 function renderPDFPages() {
   const grid = document.getElementById('pdfGrid');
   grid.innerHTML = '';
+
+  document.getElementById('pageCountLabel').textContent = '共 ' + pdfData.length + ' 页';
 
   pdfData.forEach((page, idx) => {
     const thumb = document.createElement('div');
@@ -1579,10 +1825,18 @@ function renderPDFPages() {
     const canvas = document.createElement('canvas');
     canvas.width = 320;
     canvas.height = 200;
-    // Draw appropriate chart
     if (idx === 0) drawBarChart(canvas);
     else if (idx === 1) drawPieChart(canvas);
-    else drawArchDiagram(canvas);
+    else if (idx === 2) drawArchDiagram(canvas);
+    else {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('第 ' + page.id + ' 页', canvas.width/2, canvas.height/2);
+    }
     thumbDiv.appendChild(canvas);
 
     const label = document.createElement('span');
@@ -1703,11 +1957,24 @@ function renderImageList() {
 }
 
 function drawImageThumb(canvas, id) {
-  switch (id) {
-    case 'img1': drawBarChart(canvas); break;
-    case 'img2': drawPieChart(canvas); break;
-    case 'img3': drawTeamPhoto(canvas); break;
-    case 'img4': drawArchDiagram(canvas); break;
+  const ctx = canvas.getContext('2d');
+  
+  if (id === 'img1') drawBarChart(canvas);
+  else if (id === 'img2') drawPieChart(canvas);
+  else if (id === 'img3') drawTeamPhoto(canvas);
+  else if (id === 'img4') drawArchDiagram(canvas);
+  else {
+    ctx.fillStyle = '#f3f4f6';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#6b7280';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('图片预览', canvas.width/2, canvas.height/2 - 8);
+    
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(id, canvas.width/2, canvas.height/2 + 10);
   }
 }
 
@@ -2039,9 +2306,9 @@ function previewSingleAlt(img) {
 // ============================================================
 function getExportData() {
   const data = {
-    documentName: '2025年度产品报告.pdf',
+    documentName: document.getElementById('currentFileName').textContent,
     exportDate: new Date().toISOString(),
-    totalPages: 3,
+    totalPages: pdfData.length,
     totalImages: allImages.length,
     images: allImages.map(img => ({
       id: img.id,
@@ -2074,6 +2341,44 @@ function downloadExport() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('JSON 文件已下载');
+}
+
+function downloadProcessedPdf() {
+  if (!currentTaskId) {
+    showToast('没有处理完成的任务');
+    return;
+  }
+
+  const btn = document.getElementById('btnDownloadPdf');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 下载中...';
+
+  fetch(`${API_BASE}/download/${currentTaskId}`)
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(err => { throw new Error(err.error || '下载失败'); });
+    }
+    return response.blob();
+  })
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const filename = document.getElementById('currentFileName').textContent;
+    a.download = filename.replace('.pdf', '') + '_with_alt.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('处理后 PDF 已下载');
+  })
+  .catch(error => {
+    showToast('下载失败: ' + error.message);
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 下载处理后 PDF';
+  });
 }
 
 // ============================================================
