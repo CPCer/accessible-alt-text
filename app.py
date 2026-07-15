@@ -12,10 +12,12 @@ CORS(app)
 UPLOAD_DIR = Path("uploads")
 OUTPUT_DIR = Path("output")
 LOG_DIR = Path("logs")
+EXTRACTED_IMAGES_DIR = Path("extracted_images")
 
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 LOG_DIR.mkdir(exist_ok=True)
+EXTRACTED_IMAGES_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'pdf'}
 
@@ -92,7 +94,7 @@ def process_pdf():
             log_dir=str(LOG_DIR)
         )
         generator.run()
-        
+
         output_filename = f"{Path(task['upload_path']).stem}_with_alt.pdf"
         task['output_path'] = str(OUTPUT_DIR / output_filename)
         task['log_entries'] = generator.log_entries
@@ -103,7 +105,15 @@ def process_pdf():
             'success_count': generator.success_count,
             'failed_count': generator.failed_count
         }
-        
+
+        # Save extracted images to disk for frontend preview
+        task_images_dir = EXTRACTED_IMAGES_DIR / task_id
+        task_images_dir.mkdir(exist_ok=True)
+        for img in generator.images_info:
+            img_path = task_images_dir / img['filename']
+            with open(img_path, 'wb') as f:
+                f.write(img['bytes'])
+
         images_info = []
         for img in generator.images_info:
             images_info.append({
@@ -116,6 +126,7 @@ def process_pdf():
                 'source': img['source'],
                 'filename': img['filename'],
                 'alt_text': generator.generate_alt_text(img),
+                'image_url': f"image/{task_id}/{img['filename']}",
                 'decorative': False,
                 'generated': True
             })
@@ -198,6 +209,30 @@ def download_result(task_id):
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "ok", "message": "服务运行正常"}), 200
+
+
+@app.route('/api/pdf/<task_id>', methods=['GET'])
+def serve_pdf(task_id):
+    if task_id not in processing_tasks:
+        return jsonify({"error": "任务不存在"}), 400
+
+    task = processing_tasks[task_id]
+    upload_path = Path(task['upload_path'])
+
+    if not upload_path.exists():
+        return jsonify({"error": "文件不存在"}), 404
+
+    return send_from_directory(str(upload_path.parent), upload_path.name)
+
+
+@app.route('/api/image/<task_id>/<filename>', methods=['GET'])
+def serve_extracted_image(task_id, filename):
+    img_dir = EXTRACTED_IMAGES_DIR / task_id
+
+    if not img_dir.exists():
+        return jsonify({"error": "图片不存在"}), 404
+
+    return send_from_directory(str(img_dir), filename)
 
 
 @app.route('/', methods=['GET'])

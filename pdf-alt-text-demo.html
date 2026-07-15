@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PDF 无障碍替代文本生成器 - 交互式 Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root {
     --primary: #2563eb;
@@ -1364,6 +1365,11 @@ let pdfData = [];
 let allImages = [];
 let readAloudTimer = null;
 let readAloudRunning = false;
+let pdfDoc = null;
+
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 // ============================================================
 // DEMO DATA
@@ -1494,6 +1500,9 @@ function processPdf(taskId) {
     if (data.error) {
       showToast('处理失败: ' + data.error);
       progress.classList.remove('active');
+      const btn = document.getElementById('btnUpload');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 上传并处理';
       return;
     }
 
@@ -1509,6 +1518,9 @@ function processPdf(taskId) {
   .catch(error => {
     showToast('处理失败: ' + error.message);
     document.getElementById('uploadProgress').classList.remove('active');
+    const btn = document.getElementById('btnUpload');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 上传并处理';
   });
 }
 
@@ -1518,10 +1530,15 @@ function loadResults(taskId) {
   .then(data => {
     if (data.error) {
       showToast(data.error);
+      const btn = document.getElementById('btnUpload');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 上传并处理';
       return;
     }
 
     document.getElementById('currentFileName').textContent = data.filename;
+
+    pdfDoc = null;
 
     const pages = {};
     data.images.forEach(img => {
@@ -1540,7 +1557,8 @@ function loadResults(taskId) {
         type: img.source === 'xobject' ? '信息图' : '页面截图',
         alt: img.alt_text,
         decorative: img.decorative,
-        generated: img.generated
+        generated: img.generated,
+        imageUrl: img.image_url ? `${API_BASE}/${img.image_url}` : null
       });
     });
 
@@ -1555,11 +1573,20 @@ function loadResults(taskId) {
     renderPDFPages();
     renderImageList();
     updateExportPreview();
+    updateComparison();
     document.getElementById('btnDownloadPdf').disabled = false;
+
+    const btn = document.getElementById('btnUpload');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 上传并处理';
+
     showToast(`处理完成！共识别 ${allImages.length} 张图片`);
   })
   .catch(error => {
     showToast('加载结果失败: ' + error.message);
+    const btn = document.getElementById('btnUpload');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 上传并处理';
   });
 }
 
@@ -1572,10 +1599,12 @@ function loadDemoData() {
     });
   });
 
+  pdfDoc = null;
   document.getElementById('currentFileName').textContent = '2025年度产品报告.pdf';
   renderPDFPages();
   renderImageList();
   updateExportPreview();
+  updateComparison();
   showToast('已加载示例数据');
 }
 
@@ -1809,11 +1838,50 @@ function init() {
 // ============================================================
 // RENDER: PDF Pages
 // ============================================================
-function renderPDFPages() {
+async function loadPdfDoc() {
+  if (pdfDoc || !currentTaskId) return pdfDoc;
+  try {
+    const url = `${API_BASE}/pdf/${currentTaskId}`;
+    pdfDoc = await pdfjsLib.getDocument(url).promise;
+  } catch (e) {
+    console.error('Failed to load PDF:', e);
+  }
+  return pdfDoc;
+}
+
+function renderPdfPageToCanvas(pdfPage, canvas, maxWidth, maxHeight) {
+  const viewport = pdfPage.getViewport({ scale: 1 });
+  const scale = Math.min(maxWidth / viewport.width, maxHeight / viewport.height);
+  const scaledViewport = pdfPage.getViewport({ scale });
+  canvas.width = scaledViewport.width;
+  canvas.height = scaledViewport.height;
+  pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport: scaledViewport });
+}
+
+function renderDemoPageToCanvas(canvas, idx, pageId) {
+  canvas.width = 320;
+  canvas.height = 200;
+  if (idx === 0) drawBarChart(canvas);
+  else if (idx === 1) drawPieChart(canvas);
+  else if (idx === 2) drawArchDiagram(canvas);
+  else {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f3f4f6';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('第 ' + pageId + ' 页', canvas.width/2, canvas.height/2);
+  }
+}
+
+async function renderPDFPages() {
   const grid = document.getElementById('pdfGrid');
   grid.innerHTML = '';
 
   document.getElementById('pageCountLabel').textContent = '共 ' + pdfData.length + ' 页';
+
+  const doc = await loadPdfDoc();
 
   pdfData.forEach((page, idx) => {
     const thumb = document.createElement('div');
@@ -1823,19 +1891,13 @@ function renderPDFPages() {
     const thumbDiv = document.createElement('div');
     thumbDiv.className = 'pdf-page-thumb';
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 200;
-    if (idx === 0) drawBarChart(canvas);
-    else if (idx === 1) drawPieChart(canvas);
-    else if (idx === 2) drawArchDiagram(canvas);
-    else {
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#f3f4f6';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('第 ' + page.id + ' 页', canvas.width/2, canvas.height/2);
+
+    if (doc) {
+      doc.getPage(idx + 1).then(pdfPage => {
+        renderPdfPageToCanvas(pdfPage, canvas, 320, 200);
+      });
+    } else {
+      renderDemoPageToCanvas(canvas, idx, page.id);
     }
     thumbDiv.appendChild(canvas);
 
@@ -1876,11 +1938,18 @@ function renderImageList() {
     // Thumbnail
     const thumb = document.createElement('div');
     thumb.className = 'image-item-thumb';
-    const canvas = document.createElement('canvas');
-    canvas.width = 240;
-    canvas.height = 180;
-    drawImageThumb(canvas, img.id);
-    thumb.appendChild(canvas);
+    if (img.imageUrl) {
+      const imgEl = document.createElement('img');
+      imgEl.src = img.imageUrl;
+      imgEl.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;';
+      thumb.appendChild(imgEl);
+    } else {
+      const canvas = document.createElement('canvas');
+      canvas.width = 240;
+      canvas.height = 180;
+      drawImageThumb(canvas, img.id);
+      thumb.appendChild(canvas);
+    }
 
     const tag = document.createElement('span');
     tag.className = 'page-tag';
@@ -1987,9 +2056,46 @@ function updateCounts() {
 }
 
 // ============================================================
+// UPDATE COMPARISON
+// ============================================================
+function updateComparison() {
+  const beforeEl = document.getElementById('compareBefore');
+  const afterEl = document.getElementById('compareAfter');
+
+  let beforeHtml = '';
+  let afterHtml = '';
+
+  pdfData.forEach(page => {
+    let beforeParts = [];
+    let afterParts = [];
+
+    page.images.forEach(img => {
+      if (img.decorative) {
+        beforeParts.push('（装饰图，已跳过）');
+        afterParts.push('（装饰图，已跳过）');
+      } else {
+        beforeParts.push('（图片）');
+        afterParts.push(img.alt);
+      }
+    });
+
+    beforeHtml += '<p><span class="muted">第 ' + page.id + ' 页：</span>' + beforeParts.join('...') + '...</p>';
+    afterHtml += '<p><span class="muted">第 ' + page.id + ' 页：</span>' + afterParts.join(' ') + '</p>';
+  });
+
+  if (!beforeHtml) {
+    beforeHtml = '<p class="muted">暂无数据</p>';
+    afterHtml = '<p class="muted">暂无数据</p>';
+  }
+
+  beforeEl.innerHTML = beforeHtml;
+  afterEl.innerHTML = afterHtml;
+}
+
+// ============================================================
 // MODAL
 // ============================================================
-function openModal(pageId) {
+async function openModal(pageId) {
   const overlay = document.getElementById('modalOverlay');
   const canvasContainer = document.getElementById('modalCanvas');
   const title = document.getElementById('modalTitle');
@@ -1999,12 +2105,19 @@ function openModal(pageId) {
 
   canvasContainer.innerHTML = '';
   const canvas = document.createElement('canvas');
-  canvas.width = 700;
-  canvas.height = 440;
-  if (pageId === 1) drawBarChart(canvas);
-  else if (pageId === 2) drawPieChart(canvas);
-  else drawArchDiagram(canvas);
   canvasContainer.appendChild(canvas);
+
+  const doc = await loadPdfDoc();
+  if (doc) {
+    const pdfPage = await doc.getPage(pageId);
+    renderPdfPageToCanvas(pdfPage, canvas, 700, 440);
+  } else {
+    canvas.width = 700;
+    canvas.height = 440;
+    if (pageId === 1) drawBarChart(canvas);
+    else if (pageId === 2) drawPieChart(canvas);
+    else drawArchDiagram(canvas);
+  }
 
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -2186,10 +2299,30 @@ function startReadAloud(mode) {
 
   if (mode === 'before') {
     // Without alt text - image placeholders that get skipped by screen reader
-    text = '文档共包含 3 页。\n\n第 1 页：产品销量趋势图。\n{{SKIP}}（图片不识别自动跳过）{{/SKIP}}\n\n第 2 页：市场份额分布。\n{{SKIP}}（图片不识别自动跳过）{{/SKIP}}\n\n第 2 页：团队合影。\n{{SKIP}}（图片不识别自动跳过）{{/SKIP}}\n\n第 3 页：产品架构示意图。\n{{SKIP}}（图片不识别自动跳过）{{/SKIP}}\n\n文档结束。';
+    let parts = ['文档共包含 ' + pdfData.length + ' 页。'];
+    pdfData.forEach(page => {
+      parts.push('\n\n第 ' + page.id + ' 页：' + page.title + '。');
+      page.images.forEach(() => {
+        parts.push('\n{{SKIP}}（图片不识别自动跳过）{{/SKIP}}');
+      });
+    });
+    parts.push('\n\n文档结束。');
+    text = parts.join('');
   } else {
     // With alt text
-    text = '文档共包含 3 页。\n\n第 1 页：产品销量趋势图。\n' + allImages[0].alt + '\n\n第 2 页：市场份额分布。\n' + allImages[1].alt + '\n\n第 2 页：团队合影。\n装饰图，无需替代文本，屏幕阅读器跳过。\n\n第 3 页：产品架构示意图。\n' + allImages[3].alt + '\n\n文档结束。';
+    let parts = ['文档共包含 ' + pdfData.length + ' 页。'];
+    pdfData.forEach(page => {
+      parts.push('\n\n第 ' + page.id + ' 页：' + page.title + '。');
+      page.images.forEach(img => {
+        if (img.decorative) {
+          parts.push('\n装饰图，无需替代文本，屏幕阅读器跳过。');
+        } else {
+          parts.push('\n' + img.alt);
+        }
+      });
+    });
+    parts.push('\n\n文档结束。');
+    text = parts.join('');
   }
 
   dot.classList.add('active');

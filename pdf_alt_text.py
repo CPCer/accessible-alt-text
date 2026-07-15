@@ -216,18 +216,22 @@ class PDFAltTextGenerator:
             
             if '/StructTreeRoot' in pdf.Root:
                 struct_tree = pdf.Root['/StructTreeRoot']
-                
+                figure_alt_idx = [0]
+
                 def add_alt_to_figure(item):
                     nonlocal figure_success
-                    
+
                     if isinstance(item, pikepdf.Dictionary):
                         struct_type = str(item.get('/S', '')) if item.get('/S') else ''
-                        
+
                         if struct_type == '/Figure':
-                            item['/Alt'] = "页面图像内容"
+                            alt_idx = figure_alt_idx[0] % len(self.figure_alts)
+                            alt_text = self.figure_alts[alt_idx]["alt_text"]
+                            item['/Alt'] = alt_text
+                            figure_alt_idx[0] += 1
                             figure_success += 1
                             self.success_count += 1
-                            self.log("SUCCESS", f"结构树Figure元素添加Alt文本 ({figure_success})")
+                            self.log("SUCCESS", f"结构树Figure元素添加Alt文本 ({figure_success}): {alt_text[:50]}...")
                         
                         if '/K' in item:
                             add_alt_to_figure(item['/K'])
