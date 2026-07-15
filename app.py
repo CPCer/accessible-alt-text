@@ -1,13 +1,31 @@
 import os
 import sys
 import uuid
+import logging
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from pdf_alt_text import PDFAltTextGenerator
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 CORS(app)
+
+ai_captioner = None
+
+try:
+    from ai_captioner import AICaptioner
+    logger.info("Initializing AI captioner...")
+    ai_captioner = AICaptioner()
+    ai_captioner.load(device="cpu")
+    if ai_captioner.is_available():
+        logger.info("AI captioner loaded successfully")
+    else:
+        logger.warning(f"AI captioner failed to load: {ai_captioner.get_load_error()}")
+except Exception as e:
+    logger.warning(f"Failed to initialize AI captioner: {e}")
 
 UPLOAD_DIR = Path("uploads")
 OUTPUT_DIR = Path("output")
@@ -91,7 +109,8 @@ def process_pdf():
         generator = PDFAltTextGenerator(
             pdf_path=task['upload_path'],
             output_dir=str(OUTPUT_DIR),
-            log_dir=str(LOG_DIR)
+            log_dir=str(LOG_DIR),
+            ai_captioner=ai_captioner
         )
         generator.run()
 

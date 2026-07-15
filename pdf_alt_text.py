@@ -12,11 +12,12 @@ import io
 
 
 class PDFAltTextGenerator:
-    def __init__(self, pdf_path, output_dir="output", log_dir="logs", dpi=200):
+    def __init__(self, pdf_path, output_dir="output", log_dir="logs", dpi=200, ai_captioner=None):
         self.pdf_path = Path(pdf_path)
         self.output_dir = Path(output_dir)
         self.log_dir = Path(log_dir)
         self.dpi = dpi
+        self.ai_captioner = ai_captioner
         self.output_dir.mkdir(exist_ok=True)
         self.log_dir.mkdir(exist_ok=True)
 
@@ -195,7 +196,8 @@ class PDFAltTextGenerator:
                         "ext": "png",
                         "filename": f"page_{page_num+1}_figure_{fig_idx}.png",
                         "source": "figure",
-                        "pdf_rect": (rect.x0, rect.y0, rect.x1, rect.y1)
+                        "pdf_rect": (rect.x0, rect.y0, rect.x1, rect.y1),
+                        "preview_image": cropped  # PIL Image for AI captioning
                     }
                     self.images_info.append(img_info)
 
@@ -281,7 +283,17 @@ class PDFAltTextGenerator:
 
     def generate_alt_text(self, img_info):
         source_text = "XObject图像" if img_info["source"] == "xobject" else "Figure元素"
-        alt_text = f"图片{img_info['page_num']}-{img_info['img_index']}: {source_text}，第{img_info['page_num']}页，尺寸{img_info['width']}x{img_info['height']}像素。"
+
+        ai_description = ""
+        if self.ai_captioner and self.ai_captioner.is_available():
+            preview_image = img_info.get("preview_image")
+            if preview_image and isinstance(preview_image, Image.Image):
+                ai_description = self.ai_captioner.generate_caption(preview_image)
+
+        if ai_description:
+            alt_text = f"图片{img_info['page_num']}-{img_info['img_index']}: {ai_description}"
+        else:
+            alt_text = f"图片{img_info['page_num']}-{img_info['img_index']}: {source_text}，第{img_info['page_num']}页，尺寸{img_info['width']}x{img_info['height']}像素。"
 
         return alt_text
 
