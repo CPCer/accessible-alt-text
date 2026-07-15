@@ -114,28 +114,50 @@ def process_pdf():
             with open(img_path, 'wb') as f:
                 f.write(img['bytes'])
 
-        # Return Figure elements (not extracted images)
-        # If figure_elements exist, use them; otherwise fall back to extracted images
-        if generator.figure_elements:
-            images_info = []
-            for fig in generator.figure_elements:
-                images_info.append({
-                    'id': f"figure_{fig['page_num']}_{fig['figure_index']}",
-                    'page_num': fig['page_num'],
-                    'img_index': fig['figure_index'],
-                    'width': fig.get('width', 0),
-                    'height': fig.get('height', 0),
-                    'ext': 'png',
-                    'source': 'figure',
-                    'filename': f"Figure {fig['figure_index']} (Page {fig['page_num']})",
-                    'alt_text': fig['alt_text'],
-                    'image_url': None,  # Figure elements don't have direct image URLs
-                    'decorative': False,
-                    'generated': True
-                })
-        else:
-            # Fallback: use extracted images info
-            images_info = []
+        # Build images_info from figure_elements (with real preview URLs)
+        images_info = []
+        for fig in generator.figure_elements:
+            # Find the corresponding image file for this figure
+            matching_img = None
+            for img in generator.images_info:
+                if (img['source'] == 'figure' and
+                    img['page_num'] == fig['page_num'] and
+                    img.get('pdf_rect') == fig.get('pdf_rect')):
+                    matching_img = img
+                    break
+
+            if matching_img is None:
+                # Fallback: find by page_num and approximate index
+                page_figs = [img for img in generator.images_info
+                             if img['source'] == 'figure' and img['page_num'] == fig['page_num']]
+                fig_idx_in_page = fig['figure_index']
+                # Count figures on previous pages
+                prev_page_figs = [f for f in generator.figure_elements if f['page_num'] < fig['page_num']]
+                idx_in_page = fig_idx_in_page - len(prev_page_figs) - 1
+                if 0 <= idx_in_page < len(page_figs):
+                    matching_img = page_figs[idx_in_page]
+
+            image_url = None
+            if matching_img:
+                image_url = f"image/{task_id}/{matching_img['filename']}"
+
+            images_info.append({
+                'id': f"figure_{fig['page_num']}_{fig['figure_index']}",
+                'page_num': fig['page_num'],
+                'img_index': fig['figure_index'],
+                'width': fig.get('width', 0),
+                'height': fig.get('height', 0),
+                'ext': 'png',
+                'source': 'figure',
+                'filename': f"Figure {fig['figure_index']} (Page {fig['page_num']})",
+                'alt_text': fig['alt_text'],
+                'image_url': image_url,
+                'decorative': False,
+                'generated': True
+            })
+
+        # Fallback: if no figure_elements, use extracted images
+        if not images_info and generator.images_info:
             for img in generator.images_info:
                 images_info.append({
                     'id': f"img_{img['page_num']}_{img['img_index']}",
@@ -151,7 +173,9 @@ def process_pdf():
                     'decorative': False,
                     'generated': True
                 })
+
         task['images_info'] = images_info
+        task['reading_order'] = generator.reading_order
         
         task['status'] = 'completed'
         
@@ -186,6 +210,7 @@ def get_results(task_id):
         "filename": task['filename'],
         "stats": task['stats'],
         "images": task.get('images_info', []),
+        "reading_order": task.get('reading_order', []),
         "output_path": task.get('output_path'),
         "error": task.get('error')
     }), 200

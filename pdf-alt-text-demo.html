@@ -1368,6 +1368,7 @@ let readAloudRunning = false;
 let pdfDoc = null;
 let pdfPageTexts = {}; // Cache for extracted page text
 let totalPdfPages = 0; // Total pages from actual PDF
+let readingOrder = []; // Server-provided reading order per page
 
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1543,6 +1544,7 @@ function loadResults(taskId) {
     pdfDoc = null;
     totalPdfPages = 0;
     pdfPageTexts = {};
+    readingOrder = data.reading_order || [];
 
     const pages = {};
     data.images.forEach(img => {
@@ -2130,31 +2132,58 @@ function updateComparison() {
   let beforeHtml = '';
   let afterHtml = '';
   const totalPages = totalPdfPages || pdfData.length;
+  const hasReadingOrder = readingOrder && readingOrder.length > 0;
 
   for (let p = 1; p <= totalPages; p++) {
-    const pageText = pdfPageTexts[p] || '';
-    const pageFigures = allImages.filter(img => img.page === p);
-
     let beforeParts = [];
     let afterParts = [];
 
-    if (pageText) {
-      beforeParts.push(pageText);
-      afterParts.push(pageText);
+    if (hasReadingOrder) {
+      const pageOrder = readingOrder.find(ro => ro.page_num === p);
+      if (pageOrder && pageOrder.items) {
+        pageOrder.items.forEach(item => {
+          if (item.type === 'text' && item.content) {
+            beforeParts.push(item.content);
+            afterParts.push(item.content);
+          } else if (item.type === 'figure') {
+            const fig = allImages.find(img =>
+              img.page === p && img.alt === item.content
+            );
+            if (fig && fig.decorative) {
+              beforeParts.push('（装饰图，已跳过）');
+              afterParts.push('（装饰图，已跳过）');
+            } else {
+              beforeParts.push('（图片）');
+              afterParts.push(item.content || '（图片）');
+            }
+          }
+        });
+      }
+    } else {
+      // Fallback
+      const pageText = pdfPageTexts[p] || '';
+      const pageFigures = allImages.filter(img => img.page === p);
+
+      if (pageText) {
+        beforeParts.push(pageText);
+        afterParts.push(pageText);
+      }
+
+      pageFigures.forEach(img => {
+        if (img.decorative) {
+          beforeParts.push('（装饰图，已跳过）');
+          afterParts.push('（装饰图，已跳过）');
+        } else {
+          beforeParts.push('（图片）');
+          afterParts.push(img.alt);
+        }
+      });
     }
 
-    pageFigures.forEach(img => {
-      if (img.decorative) {
-        beforeParts.push('（装饰图，已跳过）');
-        afterParts.push('（装饰图，已跳过）');
-      } else {
-        beforeParts.push('（图片）');
-        afterParts.push(img.alt);
-      }
-    });
-
-    beforeHtml += '<p><span class="muted">第 ' + p + ' 页：</span>' + beforeParts.join('...') + '</p>';
-    afterHtml += '<p><span class="muted">第 ' + p + ' 页：</span>' + afterParts.join(' ') + '</p>';
+    if (beforeParts.length > 0) {
+      beforeHtml += '<p><span class="muted">第 ' + p + ' 页：</span>' + beforeParts.join('...') + '</p>';
+      afterHtml += '<p><span class="muted">第 ' + p + ' 页：</span>' + afterParts.join(' ') + '</p>';
+    }
   }
 
   if (!beforeHtml) {
@@ -2373,39 +2402,87 @@ function startReadAloud(mode) {
   let text = '';
   const totalPages = totalPdfPages || pdfData.length;
 
+  // Use server-provided reading order if available
+  const hasReadingOrder = readingOrder && readingOrder.length > 0;
+
   if (mode === 'before') {
     // Without alt text - images are skipped by screen reader
     let parts = ['文档共包含 ' + totalPages + ' 页。'];
-    for (let p = 1; p <= totalPages; p++) {
-      const pageText = pdfPageTexts[p] || '';
-      const pageFigures = allImages.filter(img => img.page === p);
-      parts.push('\n\n第 ' + p + ' 页。');
-      if (pageText) {
-        parts.push(pageText + '。');
+
+    if (hasReadingOrder) {
+      for (let p = 1; p <= totalPages; p++) {
+        const pageOrder = readingOrder.find(ro => ro.page_num === p);
+        parts.push('\n\n第 ' + p + ' 页。');
+        if (pageOrder && pageOrder.items) {
+          pageOrder.items.forEach(item => {
+            if (item.type === 'text' && item.content) {
+              parts.push(item.content + '。');
+            } else if (item.type === 'figure') {
+              parts.push(' {{SKIP}}（图片不识别自动跳过）{{/SKIP}}');
+            }
+          });
+        }
       }
-      pageFigures.forEach(() => {
-        parts.push(' {{SKIP}}（图片不识别自动跳过）{{/SKIP}}');
-      });
+    } else {
+      // Fallback: old method
+      for (let p = 1; p <= totalPages; p++) {
+        const pageText = pdfPageTexts[p] || '';
+        const pageFigures = allImages.filter(img => img.page === p);
+        parts.push('\n\n第 ' + p + ' 页。');
+        if (pageText) {
+          parts.push(pageText + '。');
+        }
+        pageFigures.forEach(() => {
+          parts.push(' {{SKIP}}（图片不识别自动跳过）{{/SKIP}}');
+        });
+      }
     }
     parts.push('\n\n文档结束。');
     text = parts.join('');
   } else {
     // With alt text
     let parts = ['文档共包含 ' + totalPages + ' 页。'];
-    for (let p = 1; p <= totalPages; p++) {
-      const pageText = pdfPageTexts[p] || '';
-      const pageFigures = allImages.filter(img => img.page === p);
-      parts.push('\n\n第 ' + p + ' 页。');
-      if (pageText) {
-        parts.push(pageText + '。');
-      }
-      pageFigures.forEach(img => {
-        if (img.decorative) {
-          parts.push(' 装饰图，无需替代文本，屏幕阅读器跳过。');
-        } else {
-          parts.push(' ' + img.alt);
+
+    if (hasReadingOrder) {
+      for (let p = 1; p <= totalPages; p++) {
+        const pageOrder = readingOrder.find(ro => ro.page_num === p);
+        parts.push('\n\n第 ' + p + ' 页。');
+        if (pageOrder && pageOrder.items) {
+          pageOrder.items.forEach(item => {
+            if (item.type === 'text' && item.content) {
+              parts.push(item.content + '。');
+            } else if (item.type === 'figure') {
+              const fig = allImages.find(img =>
+                img.page === p && img.alt === item.content
+              );
+              if (fig && fig.decorative) {
+                parts.push(' 装饰图，无需替代文本，屏幕阅读器跳过。');
+              } else if (item.content) {
+                parts.push(' ' + item.content);
+              } else {
+                parts.push(' {{SKIP}}（图片不识别自动跳过）{{/SKIP}}');
+              }
+            }
+          });
         }
-      });
+      }
+    } else {
+      // Fallback: old method
+      for (let p = 1; p <= totalPages; p++) {
+        const pageText = pdfPageTexts[p] || '';
+        const pageFigures = allImages.filter(img => img.page === p);
+        parts.push('\n\n第 ' + p + ' 页。');
+        if (pageText) {
+          parts.push(pageText + '。');
+        }
+        pageFigures.forEach(img => {
+          if (img.decorative) {
+            parts.push(' 装饰图，无需替代文本，屏幕阅读器跳过。');
+          } else {
+            parts.push(' ' + img.alt);
+          }
+        });
+      }
     }
     parts.push('\n\n文档结束。');
     text = parts.join('');
