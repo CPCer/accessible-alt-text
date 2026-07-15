@@ -46,7 +46,6 @@
     padding: 60px 40px;
   }
 
-  /* Noise texture overlay */
   body::before {
     content: '';
     position: fixed;
@@ -136,7 +135,6 @@
     position: relative;
   }
 
-  /* Vertical connecting line */
   .flowchart::before {
     content: '';
     position: absolute;
@@ -171,7 +169,6 @@
   .step:nth-child(4) { animation-delay: 0.4s; }
   .step:nth-child(5) { animation-delay: 0.5s; }
 
-  /* Step number marker */
   .step-marker {
     display: flex;
     flex-direction: column;
@@ -210,10 +207,8 @@
     letter-spacing: 1px;
     text-transform: uppercase;
     text-align: center;
-    writing-mode: horizontal-tb;
   }
 
-  /* Step content card */
   .step-card {
     background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
     border: 1px solid var(--border);
@@ -296,7 +291,6 @@
     border: 1px solid var(--border);
   }
 
-  /* Key points list */
   .step-points {
     display: flex;
     flex-direction: column;
@@ -325,7 +319,37 @@
     font-weight: 500;
   }
 
-  /* Error callout in step 4 */
+  /* Pipeline visualization for step 2 */
+  .pipeline {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .pipeline-node {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .pipeline-arrow {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+  }
+
+  /* Error callout in step 5 */
   .error-callout {
     margin-top: 14px;
     padding: 12px 16px;
@@ -346,6 +370,34 @@
     height: 16px;
     margin-top: 2px;
     color: var(--warn);
+  }
+
+  /* Prototype-style boxes for step 3 */
+  .prototype-grid {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  .proto-box {
+    padding: 12px;
+    background: var(--bg-2);
+    border: 1px dashed var(--accent-color);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .proto-box .proto-icon {
+    font-size: 20px;
+    margin-bottom: 6px;
+    color: var(--accent-color);
+  }
+
+  .proto-box .proto-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 500;
   }
 
   /* ===== Tech Stack Bar ===== */
@@ -441,7 +493,6 @@
     }
   }
 
-  /* ===== Result banner ===== */
   .result-banner {
     margin-top: 40px;
     padding: 28px 32px;
@@ -503,7 +554,7 @@
     <h1>PDF 无障碍 AI 助手</h1>
     <p class="subtitle">
       从想法到可运行 Demo，全程在 <strong>Trae</strong> 中完成<br>
-      端到端打通：图片提取 → AI 描述生成 → 审校 → 写入 PDF
+      需求分析 → 框架搭建 → 原型设计 → 后端实现 → 调测验证
     </p>
   </header>
 
@@ -522,8 +573,8 @@
           <div class="step-tag">Feasibility</div>
         </div>
         <p class="step-desc">
-          向 Trae 提出想法：<strong>"想给 PDF 工具接入本地多模态模型，类似 Firefox Nightly 的小模型，可行吗？"</strong>
-          Trae 不仅给出可行性判断，还对比了多个方案并帮我选定最优解。
+          向 Trae 提出想法：<strong>"想给 PDF 工具接入本地多模态模型，可行吗？"</strong>
+          Trae 评估技术可行性、对比多方案，并明确需求范围——确定项目可做。
         </p>
         <div class="step-points">
           <div class="point">
@@ -532,7 +583,11 @@
           </div>
           <div class="point">
             <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>选定 <strong>BLIP-base</strong>：约 1GB，CPU 推理 2-5 秒/图，平衡体积与速度</span>
+            <span>选定 <strong>BLIP-base</strong>：约 1GB，CPU 推理 2-5 秒/图</span>
+          </div>
+          <div class="point">
+            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>明确需求范围：<strong>提取 → AI 描述 → 审校 → 写入 /Alt</strong> 完整闭环</span>
           </div>
         </div>
       </div>
@@ -542,28 +597,33 @@
     <div class="step">
       <div class="step-marker">
         <div class="step-num">02</div>
-        <div class="step-label">BUILD</div>
+        <div class="step-label">SCAFFOLD</div>
       </div>
       <div class="step-card">
         <div class="step-header">
-          <div class="step-title">后端 AI 模块开发</div>
-          <div class="step-tag">ai_captioner.py</div>
+          <div class="step-title">搭框架，后端核心工序跑通</div>
+          <div class="step-tag">Foundation</div>
         </div>
         <p class="step-desc">
-          Trae 新建 <code>ai_captioner.py</code>，封装 BLIP 模型的加载与推理。关键设计：
+          项目骨架搭建后，优先把 PDF 处理的核心工序跑通，先不接 AI，确保基础链路稳定，为后续接入留好接口。
         </p>
-        <div class="step-points">
+        <div class="pipeline">
+          <span class="pipeline-node">PyMuPDF 提取</span>
+          <span class="pipeline-arrow">→</span>
+          <span class="pipeline-node">pHash 去重</span>
+          <span class="pipeline-arrow">→</span>
+          <span class="pipeline-node">过滤装饰图</span>
+          <span class="pipeline-arrow">→</span>
+          <span class="pipeline-node">pikepdf 写入</span>
+        </div>
+        <div class="step-points" style="margin-top: 14px;">
           <div class="point">
             <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>模块级设置 <code>HF_ENDPOINT</code> 国内镜像，规避 SSL 错误</span>
+            <span><strong>提取→过滤→写入</strong> 基础链路稳定可靠</span>
           </div>
           <div class="point">
             <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><strong>三级模型路径查找</strong>：环境变量 → HF 缓存 → 网络下载</span>
-          </div>
-          <div class="point">
-            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>依赖注入传入 <code>PDFAltTextGenerator</code>，保持模块解耦</span>
+            <span>通过依赖注入预留 <code>ai_captioner</code> 接口</span>
           </div>
         </div>
       </div>
@@ -573,24 +633,40 @@
     <div class="step">
       <div class="step-marker">
         <div class="step-num">03</div>
-        <div class="step-label">CONNECT</div>
+        <div class="step-label">PROTOTYPE</div>
       </div>
       <div class="step-card">
         <div class="step-header">
-          <div class="step-title">前后端联调</div>
-          <div class="step-tag">API Integration</div>
+          <div class="step-title">前端 HTML 搭建（原型图逻辑）</div>
+          <div class="step-tag">Prototype</div>
         </div>
         <p class="step-desc">
-          发现前端"调用本地模型"按钮是纯 <code>setTimeout</code> 模拟，并未真正调用后端。Trae 重写调用链：
+          这一步类似<strong>产品经理绘制原型图</strong>——先用 HTML+CSS 把页面结构和交互流程搭出来，确定"用户看到什么、怎么操作"，再倒推后端需要提供哪些接口。
         </p>
-        <div class="step-points">
-          <div class="point">
-            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><code>startGeneration()</code> 改为 <code>fetch POST /api/process</code></span>
+        <div class="prototype-grid">
+          <div class="proto-box">
+            <div class="proto-icon">⬆️</div>
+            <div class="proto-label">上传区</div>
           </div>
-          <div class="point">
-            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>返回 <strong>ai_model_available / ai_model_error / used_fallback</strong> 三状态</span>
+          <div class="proto-box">
+            <div class="proto-icon">📄</div>
+            <div class="proto-label">PDF 缩略图</div>
+          </div>
+          <div class="proto-box">
+            <div class="proto-icon">🖼️</div>
+            <div class="proto-label">图片列表</div>
+          </div>
+          <div class="proto-box">
+            <div class="proto-icon">✏️</div>
+            <div class="proto-label">审校面板</div>
+          </div>
+          <div class="proto-box">
+            <div class="proto-icon">📊</div>
+            <div class="proto-label">进度条</div>
+          </div>
+          <div class="proto-box">
+            <div class="proto-icon">💬</div>
+            <div class="proto-label">Toast 提示</div>
           </div>
         </div>
       </div>
@@ -600,27 +676,33 @@
     <div class="step">
       <div class="step-marker">
         <div class="step-num">04</div>
-        <div class="step-label">DEBUG</div>
+        <div class="step-label">IMPLEMENT</div>
       </div>
       <div class="step-card">
         <div class="step-header">
-          <div class="step-title">问题排查与迭代</div>
-          <div class="step-tag">Iterate</div>
+          <div class="step-title">根据前端实现后端代码</div>
+          <div class="step-tag">API Driven</div>
         </div>
         <p class="step-desc">
-          开发中遇到几个典型问题，Trae 通过日志分析快速定位并修复：
+          前端搭好后，后端 API 设计就有了明确依据。Trae 根据前端调用的字段，反向实现后端逻辑，前后端字段一一对应。
         </p>
-        <div class="error-callout">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span><strong>pytorch_model.bin not found</strong> · 新版 transformers 的 symlink 机制导致 <code>local_files_only</code> 失效 → 新增 <code>_find_model_path()</code> 手动遍历 HF 缓存</span>
-        </div>
-        <div class="error-callout">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span><strong>本地无缓存</strong> → 新增 <code>BLIP_MODEL_PATH</code> 环境变量支持，提供完整本地配置指南</span>
-        </div>
-        <div class="error-callout">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span><strong>前端无错误提示</strong> → 添加失败判断，模型不可用时显示 6 秒错误 toast</span>
+        <div class="step-points">
+          <div class="point">
+            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><code>POST /api/upload</code> · 文件上传与任务创建</span>
+          </div>
+          <div class="point">
+            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><code>POST /api/process</code> · 触发处理，返回 AI 状态</span>
+          </div>
+          <div class="point">
+            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><code>GET /api/results/:id</code> · 拉取结果与图片预览</span>
+          </div>
+          <div class="point">
+            <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>状态字段对齐：<strong>ai_model_available / used_fallback</strong></span>
+          </div>
         </div>
       </div>
     </div>
@@ -629,24 +711,36 @@
     <div class="step">
       <div class="step-marker">
         <div class="step-num">05</div>
-        <div class="step-label">VERIFY</div>
+        <div class="step-label">DEBUG</div>
       </div>
       <div class="step-card">
         <div class="step-header">
-          <div class="step-title">云端验证</div>
-          <div class="step-tag">E2E Test</div>
+          <div class="step-title">调测与迭代</div>
+          <div class="step-tag">Verify</div>
         </div>
         <p class="step-desc">
-          在云端环境完整跑通流程，验证端到端链路正常：
+          端到端联调中发现并修复多个典型问题，最终在云端验证通过：
         </p>
-        <div class="step-points">
+        <div class="error-callout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><strong>模型加载失败</strong> · symlink 机制导致 <code>local_files_only</code> 失效 → 新增 <code>_find_model_path()</code></span>
+        </div>
+        <div class="error-callout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><strong>本地无缓存</strong> → 新增 <code>BLIP_MODEL_PATH</code> 环境变量，提供本地配置指南</span>
+        </div>
+        <div class="error-callout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><strong>前端无错误提示</strong> → 添加失败判断，模型不可用时显示 6 秒错误 toast</span>
+        </div>
+        <div class="step-points" style="margin-top: 14px;">
           <div class="point">
             <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>API 返回 <code>"ai_model_available": true</code></span>
+            <span>云端验证：<code>"ai_model_available": true</code></span>
           </div>
           <div class="point">
             <svg class="point-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><code>"used_fallback": false</code> · 所有图片均成功生成 AI 描述</span>
+            <span><code>"used_fallback": false</code> · 端到端链路完整跑通</span>
           </div>
         </div>
       </div>
@@ -661,7 +755,7 @@
     </div>
     <div class="result-content">
       <h3>端到端链路打通</h3>
-      <p>PDF → 图片提取 → BLIP 生成描述 → 审校 → 写入 /Alt 标签 ✓</p>
+      <p>需求分析 → 框架 → 原型 → 后端实现 → 调测 ✓</p>
     </div>
   </div>
 
