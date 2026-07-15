@@ -1,6 +1,11 @@
+import os
 import logging
 from typing import Optional, Union
 from PIL import Image
+
+# Configure HuggingFace mirror before importing transformers
+if not os.environ.get("HF_ENDPOINT"):
+    os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +32,8 @@ class AICaptioner:
 
         try:
             logger.info(f"Loading AI model: {self.model_name} (device: {device})")
-            import os
-            if not os.environ.get("HF_ENDPOINT"):
-                os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
-                logger.info("Using HuggingFace mirror: https://hf-mirror.com")
+            if os.environ.get("HF_ENDPOINT"):
+                logger.info(f"Using HuggingFace mirror: {os.environ['HF_ENDPOINT']}")
 
             import torch
             self.processor = BlipProcessor.from_pretrained(self.model_name)

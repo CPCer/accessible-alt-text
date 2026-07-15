@@ -103,6 +103,8 @@ def process_pdf():
     if task['status'] == 'processing':
         return jsonify({"error": "正在处理中，请稍后"}), 400
     
+    # Allow re-processing completed/failed tasks
+    mode = data.get('mode', 'local')
     task['status'] = 'processing'
     
     try:
@@ -306,4 +308,4 @@ def index():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
