@@ -25,8 +25,21 @@ class AICaptioner:
         self._is_loaded = False
         self._load_error = None
 
-    def _find_local_cache_path(self) -> Optional[str]:
-        """Find local cache path for the model"""
+    def _find_model_path(self) -> Optional[str]:
+        """Find model path from: 1) BLIP_MODEL_PATH env var, 2) local HF cache"""
+        
+        blip_path_env = os.environ.get("BLIP_MODEL_PATH")
+        if blip_path_env:
+            blip_path_env = os.path.expanduser(blip_path_env)
+            if os.path.isdir(blip_path_env):
+                model_bin = os.path.join(blip_path_env, "pytorch_model.bin")
+                config_json = os.path.join(blip_path_env, "config.json")
+                if os.path.exists(model_bin) and os.path.exists(config_json):
+                    logger.info(f"Found model from BLIP_MODEL_PATH: {blip_path_env}")
+                    return blip_path_env
+                else:
+                    logger.warning(f"BLIP_MODEL_PATH exists but missing files: {blip_path_env}")
+        
         try:
             cache_dir = os.path.expanduser("~/.cache/huggingface/hub")
             repo_name = self.model_name.replace("/", "--")
@@ -60,13 +73,12 @@ class AICaptioner:
         try:
             logger.info(f"Loading AI model: {self.model_name} (device: {device})")
             
-            local_path = self._find_local_cache_path()
+            local_path = self._find_model_path()
             if local_path:
-                logger.info(f"Found local cache: {local_path}")
                 model_path = local_path
                 use_local = True
             else:
-                logger.info("No local cache found, will download from HuggingFace")
+                logger.info("No local model found, will download from HuggingFace")
                 if os.environ.get("HF_ENDPOINT"):
                     logger.info(f"Using HuggingFace mirror: {os.environ['HF_ENDPOINT']}")
                 model_path = self.model_name
