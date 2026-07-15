@@ -36,12 +36,28 @@ class AICaptioner:
                 logger.info(f"Using HuggingFace mirror: {os.environ['HF_ENDPOINT']}")
 
             import torch
-            self.processor = BlipProcessor.from_pretrained(self.model_name)
-            self.model = BlipForConditionalGeneration.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.float32 if device == "cpu" else torch.float16,
-                device_map=device
-            )
+            
+            try:
+                self.processor = BlipProcessor.from_pretrained(self.model_name, local_files_only=True)
+            except Exception as e:
+                logger.warning(f"Failed to load processor with local_files_only: {e}. Retrying with network...")
+                self.processor = BlipProcessor.from_pretrained(self.model_name)
+            
+            try:
+                self.model = BlipForConditionalGeneration.from_pretrained(
+                    self.model_name,
+                    torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+                    device_map=device,
+                    local_files_only=True
+                )
+            except Exception as e:
+                logger.warning(f"Failed to load model with local_files_only: {e}. Retrying with network...")
+                self.model = BlipForConditionalGeneration.from_pretrained(
+                    self.model_name,
+                    torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+                    device_map=device
+                )
+            
             self._is_loaded = True
             logger.info("AI model loaded successfully")
             return True
