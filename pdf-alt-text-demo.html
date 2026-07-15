@@ -542,11 +542,11 @@
     color: #78350f;
   }
   .readaloud-area .highlight-word.skip-segment {
-    opacity: 0.35;
+    opacity: 0.65;
     background: var(--gray-100);
-    color: var(--gray-400);
+    color: var(--gray-500);
     text-decoration: line-through;
-    text-decoration-color: var(--gray-300);
+    text-decoration-color: var(--gray-400);
   }
   .readaloud-controls {
     display: flex;
@@ -1366,6 +1366,8 @@ let allImages = [];
 let readAloudTimer = null;
 let readAloudRunning = false;
 let pdfDoc = null;
+let pdfPageTexts = {}; // Cache for extracted page text
+let totalPdfPages = 0; // Total pages from actual PDF
 
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1539,6 +1541,8 @@ function loadResults(taskId) {
     document.getElementById('currentFileName').textContent = data.filename;
 
     pdfDoc = null;
+    totalPdfPages = 0;
+    pdfPageTexts = {};
 
     const pages = {};
     data.images.forEach(img => {
@@ -1570,10 +1574,13 @@ function loadResults(taskId) {
       });
     });
 
-    renderPDFPages();
-    renderImageList();
-    updateExportPreview();
-    updateComparison();
+    // Load PDF doc to extract text and enable real previews
+    loadPdfDoc().then(() => {
+      renderPDFPages();
+      renderImageList();
+      updateExportPreview();
+      updateComparison();
+    });
     document.getElementById('btnDownloadPdf').disabled = false;
 
     const btn = document.getElementById('btnUpload');
@@ -1843,6 +1850,15 @@ async function loadPdfDoc() {
   try {
     const url = `${API_BASE}/pdf/${currentTaskId}`;
     pdfDoc = await pdfjsLib.getDocument(url).promise;
+    totalPdfPages = pdfDoc.numPages;
+    // Extract text from all pages
+    pdfPageTexts = {};
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ').trim();
+      pdfPageTexts[i] = pageText;
+    }
   } catch (e) {
     console.error('Failed to load PDF:', e);
   }
@@ -1879,47 +1895,55 @@ async function renderPDFPages() {
   const grid = document.getElementById('pdfGrid');
   grid.innerHTML = '';
 
-  document.getElementById('pageCountLabel').textContent = '共 ' + pdfData.length + ' 页';
+  const displayPages = totalPdfPages || pdfData.length;
+  document.getElementById('pageCountLabel').textContent = '共 ' + displayPages + ' 页';
 
   const doc = await loadPdfDoc();
 
-  pdfData.forEach((page, idx) => {
+  for (let idx = 0; idx < displayPages; idx++) {
+    const pageNum = idx + 1;
+    const pageData = pdfData.find(p => p.id === pageNum);
+    const pageImages = pageData ? pageData.images : [];
+
     const thumb = document.createElement('div');
     thumb.className = 'pdf-page card';
-    thumb.onclick = () => openModal(page.id);
+    thumb.onclick = () => openModal(pageNum);
 
     const thumbDiv = document.createElement('div');
     thumbDiv.className = 'pdf-page-thumb';
     const canvas = document.createElement('canvas');
 
     if (doc) {
-      doc.getPage(idx + 1).then(pdfPage => {
-        renderPdfPageToCanvas(pdfPage, canvas, 320, 200);
-      });
+      const pdfPage = await doc.getPage(pageNum);
+      renderPdfPageToCanvas(pdfPage, canvas, 320, 200);
     } else {
-      renderDemoPageToCanvas(canvas, idx, page.id);
+      renderDemoPageToCanvas(canvas, idx, pageNum);
     }
     thumbDiv.appendChild(canvas);
 
     const label = document.createElement('span');
     label.className = 'pdf-page-label';
-    label.textContent = '第 ' + page.id + ' 页';
+    label.textContent = '第 ' + pageNum + ' 页';
     thumbDiv.appendChild(label);
 
     const info = document.createElement('div');
     info.className = 'pdf-page-info';
-    info.innerHTML = '<h4>' + page.title + '</h4><p>' + page.desc + '</p>';
+    const title = pageData ? pageData.title : '第 ' + pageNum + ' 页';
+    const desc = pageData ? pageData.desc : (pdfPageTexts[pageNum] ? pdfPageTexts[pageNum].substring(0, 40) + '...' : '');
+    info.innerHTML = '<h4>' + title + '</h4><p>' + desc + '</p>';
 
-    const badge = document.createElement('span');
-    badge.className = 'image-count-badge';
-    badge.textContent = page.images.length + ' 张图片';
-    info.querySelector('p').appendChild(document.createTextNode(' '));
-    info.querySelector('p').appendChild(badge);
+    if (pageImages.length > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'image-count-badge';
+      badge.textContent = pageImages.length + ' 张图片';
+      info.querySelector('p').appendChild(document.createTextNode(' '));
+      info.querySelector('p').appendChild(badge);
+    }
 
     thumb.appendChild(thumbDiv);
     thumb.appendChild(info);
     grid.appendChild(thumb);
-  });
+  }
 }
 
 // ============================================================
@@ -1943,6 +1967,13 @@ function renderImageList() {
       imgEl.src = img.imageUrl;
       imgEl.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;';
       thumb.appendChild(imgEl);
+    } else if (pdfDoc) {
+      // Render the actual PDF page as preview for Figure elements
+      const canvas = document.createElement('canvas');
+      thumb.appendChild(canvas);
+      pdfDoc.getPage(img.page).then(pdfPage => {
+        renderPdfPageToCanvas(pdfPage, canvas, 240, 180);
+      });
     } else {
       const canvas = document.createElement('canvas');
       canvas.width = 240;
@@ -2098,12 +2129,21 @@ function updateComparison() {
 
   let beforeHtml = '';
   let afterHtml = '';
+  const totalPages = totalPdfPages || pdfData.length;
 
-  pdfData.forEach(page => {
+  for (let p = 1; p <= totalPages; p++) {
+    const pageText = pdfPageTexts[p] || '';
+    const pageFigures = allImages.filter(img => img.page === p);
+
     let beforeParts = [];
     let afterParts = [];
 
-    page.images.forEach(img => {
+    if (pageText) {
+      beforeParts.push(pageText);
+      afterParts.push(pageText);
+    }
+
+    pageFigures.forEach(img => {
       if (img.decorative) {
         beforeParts.push('（装饰图，已跳过）');
         afterParts.push('（装饰图，已跳过）');
@@ -2113,9 +2153,9 @@ function updateComparison() {
       }
     });
 
-    beforeHtml += '<p><span class="muted">第 ' + page.id + ' 页：</span>' + beforeParts.join('...') + '...</p>';
-    afterHtml += '<p><span class="muted">第 ' + page.id + ' 页：</span>' + afterParts.join(' ') + '</p>';
-  });
+    beforeHtml += '<p><span class="muted">第 ' + p + ' 页：</span>' + beforeParts.join('...') + '</p>';
+    afterHtml += '<p><span class="muted">第 ' + p + ' 页：</span>' + afterParts.join(' ') + '</p>';
+  }
 
   if (!beforeHtml) {
     beforeHtml = '<p class="muted">暂无数据</p>';
@@ -2134,8 +2174,7 @@ async function openModal(pageId) {
   const canvasContainer = document.getElementById('modalCanvas');
   const title = document.getElementById('modalTitle');
 
-  const page = pdfData.find(p => p.id === pageId);
-  title.textContent = '第 ' + page.id + ' 页 - ' + page.title;
+  title.textContent = '第 ' + pageId + ' 页';
 
   canvasContainer.innerHTML = '';
   const canvas = document.createElement('canvas');
@@ -2301,6 +2340,8 @@ function saveEdit(imgId) {
     altEl.textContent = img.alt;
     altEl.classList.remove('editing');
   }
+  // Sync comparison and read aloud
+  updateComparison();
   showToast('替代文本已保存');
 }
 
@@ -2330,31 +2371,42 @@ function startReadAloud(mode) {
   const statusText = document.getElementById('readaloudStatusText');
 
   let text = '';
+  const totalPages = totalPdfPages || pdfData.length;
 
   if (mode === 'before') {
-    // Without alt text - image placeholders that get skipped by screen reader
-    let parts = ['文档共包含 ' + pdfData.length + ' 页。'];
-    pdfData.forEach(page => {
-      parts.push('\n\n第 ' + page.id + ' 页：' + page.title + '。');
-      page.images.forEach(() => {
-        parts.push('\n{{SKIP}}（图片不识别自动跳过）{{/SKIP}}');
+    // Without alt text - images are skipped by screen reader
+    let parts = ['文档共包含 ' + totalPages + ' 页。'];
+    for (let p = 1; p <= totalPages; p++) {
+      const pageText = pdfPageTexts[p] || '';
+      const pageFigures = allImages.filter(img => img.page === p);
+      parts.push('\n\n第 ' + p + ' 页。');
+      if (pageText) {
+        parts.push(pageText + '。');
+      }
+      pageFigures.forEach(() => {
+        parts.push(' {{SKIP}}（图片不识别自动跳过）{{/SKIP}}');
       });
-    });
+    }
     parts.push('\n\n文档结束。');
     text = parts.join('');
   } else {
     // With alt text
-    let parts = ['文档共包含 ' + pdfData.length + ' 页。'];
-    pdfData.forEach(page => {
-      parts.push('\n\n第 ' + page.id + ' 页：' + page.title + '。');
-      page.images.forEach(img => {
+    let parts = ['文档共包含 ' + totalPages + ' 页。'];
+    for (let p = 1; p <= totalPages; p++) {
+      const pageText = pdfPageTexts[p] || '';
+      const pageFigures = allImages.filter(img => img.page === p);
+      parts.push('\n\n第 ' + p + ' 页。');
+      if (pageText) {
+        parts.push(pageText + '。');
+      }
+      pageFigures.forEach(img => {
         if (img.decorative) {
-          parts.push('\n装饰图，无需替代文本，屏幕阅读器跳过。');
+          parts.push(' 装饰图，无需替代文本，屏幕阅读器跳过。');
         } else {
-          parts.push('\n' + img.alt);
+          parts.push(' ' + img.alt);
         }
       });
-    });
+    }
     parts.push('\n\n文档结束。');
     text = parts.join('');
   }
