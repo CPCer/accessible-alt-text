@@ -199,12 +199,25 @@ def process_pdf():
         task['reading_order'] = generator.reading_order
         
         task['status'] = 'completed'
-        
+
+        # Check if AI model was actually used
+        ai_available = ai_captioner is not None and ai_captioner.is_available()
+        # Detect if any alt_text fell back to template (no AI description)
+        used_fallback = False
+        for img in images_info:
+            alt = img.get('alt_text', '')
+            if 'Figure元素' in alt or 'XObject图像' in alt:
+                used_fallback = True
+                break
+
         return jsonify({
             "task_id": task_id,
             "status": "completed",
             "stats": task['stats'],
-            "message": "处理完成"
+            "message": "处理完成",
+            "ai_model_available": ai_available,
+            "ai_model_error": ai_captioner.get_load_error() if ai_captioner else "AI模型未初始化",
+            "used_fallback": used_fallback
         }), 200
         
     except Exception as e:

@@ -2278,6 +2278,25 @@ function startGeneration(mode) {
       return;
     }
 
+    // Check if AI model was available
+    if (mode === 'local' && data.ai_model_available === false) {
+      var errMsg = data.ai_model_error || '模型未加载';
+      showToast('本地模型调用失败：' + errMsg + '。请检查模型配置（BLIP_MODEL_PATH）或查看后端日志。', 6000);
+      btn.disabled = false;
+      otherBtn.disabled = false;
+      btn.innerHTML = mode === 'cloud' ? cloudBtnHtml : localBtnHtml;
+      bar.classList.remove('active');
+      fill.style.width = '0%';
+      percent.textContent = '0%';
+      text.textContent = '本地模型不可用';
+      return;
+    }
+
+    // Check if some images fell back to template text
+    if (mode === 'local' && data.used_fallback === true && data.ai_model_available === true) {
+      showToast('部分图片未能生成AI描述，已使用模板文本替代', 5000);
+    }
+
     fill.style.width = '80%';
     percent.textContent = '80%';
     text.textContent = '正在加载结果...';
@@ -2718,12 +2737,12 @@ function downloadProcessedPdf() {
 // ============================================================
 // TOAST
 // ============================================================
-function showToast(msg) {
+function showToast(msg, duration) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.classList.remove('show'); }, 2500);
+  el._timer = setTimeout(() => { el.classList.remove('show'); }, duration || 2500);
 }
 
 // ============================================================
