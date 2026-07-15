@@ -216,9 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-*.pdf
 
 # PDF processing directories
 uploads/
 output/
 logs/
+*.png
