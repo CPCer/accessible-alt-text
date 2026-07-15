@@ -25,6 +25,33 @@ class AICaptioner:
         self._is_loaded = False
         self._load_error = None
 
+    def _find_local_cache_path(self) -> Optional[str]:
+        """Find local cache path for the model"""
+        try:
+            cache_dir = os.path.expanduser("~/.cache/huggingface/hub")
+            repo_name = self.model_name.replace("/", "--")
+            model_cache_dir = os.path.join(cache_dir, f"models--{repo_name}")
+            snapshots_dir = os.path.join(model_cache_dir, "snapshots")
+            
+            if not os.path.exists(snapshots_dir):
+                return None
+            
+            snapshots = [d for d in os.listdir(snapshots_dir) if os.path.isdir(os.path.join(snapshots_dir, d))]
+            if not snapshots:
+                return None
+            
+            snapshots.sort(reverse=True)
+            for snapshot in snapshots:
+                snapshot_path = os.path.join(snapshots_dir, snapshot)
+                model_bin = os.path.join(snapshot_path, "pytorch_model.bin")
+                config_json = os.path.join(snapshot_path, "config.json")
+                if os.path.exists(model_bin) and os.path.exists(config_json):
+                    return snapshot_path
+            
+            return None
+        except Exception:
+            return None
+
     def load(self, device: str = "cpu") -> bool:
         if not _transformers_available:
             self._load_error = "transformers library not installed"
@@ -32,31 +59,32 @@ class AICaptioner:
 
         try:
             logger.info(f"Loading AI model: {self.model_name} (device: {device})")
-            if os.environ.get("HF_ENDPOINT"):
-                logger.info(f"Using HuggingFace mirror: {os.environ['HF_ENDPOINT']}")
+            
+            local_path = self._find_local_cache_path()
+            if local_path:
+                logger.info(f"Found local cache: {local_path}")
+                model_path = local_path
+                use_local = True
+            else:
+                logger.info("No local cache found, will download from HuggingFace")
+                if os.environ.get("HF_ENDPOINT"):
+                    logger.info(f"Using HuggingFace mirror: {os.environ['HF_ENDPOINT']}")
+                model_path = self.model_name
+                use_local = False
 
             import torch
             
-            try:
-                self.processor = BlipProcessor.from_pretrained(self.model_name, local_files_only=True)
-            except Exception as e:
-                logger.warning(f"Failed to load processor with local_files_only: {e}. Retrying with network...")
-                self.processor = BlipProcessor.from_pretrained(self.model_name)
+            self.processor = BlipProcessor.from_pretrained(
+                model_path,
+                local_files_only=use_local
+            )
             
-            try:
-                self.model = BlipForConditionalGeneration.from_pretrained(
-                    self.model_name,
-                    torch_dtype=torch.float32 if device == "cpu" else torch.float16,
-                    device_map=device,
-                    local_files_only=True
-                )
-            except Exception as e:
-                logger.warning(f"Failed to load model with local_files_only: {e}. Retrying with network...")
-                self.model = BlipForConditionalGeneration.from_pretrained(
-                    self.model_name,
-                    torch_dtype=torch.float32 if device == "cpu" else torch.float16,
-                    device_map=device
-                )
+            self.model = BlipForConditionalGeneration.from_pretrained(
+                model_path,
+                torch_dtype=torch.float32 if device == "cpu" else torch.float16,
+                device_map=device,
+                local_files_only=use_local
+            )
             
             self._is_loaded = True
             logger.info("AI model loaded successfully")
