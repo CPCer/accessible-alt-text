@@ -114,22 +114,43 @@ def process_pdf():
             with open(img_path, 'wb') as f:
                 f.write(img['bytes'])
 
-        images_info = []
-        for img in generator.images_info:
-            images_info.append({
-                'id': f"img_{img['page_num']}_{img['img_index']}",
-                'page_num': img['page_num'],
-                'img_index': img['img_index'],
-                'width': img['width'],
-                'height': img['height'],
-                'ext': img['ext'],
-                'source': img['source'],
-                'filename': img['filename'],
-                'alt_text': generator.generate_alt_text(img),
-                'image_url': f"image/{task_id}/{img['filename']}",
-                'decorative': False,
-                'generated': True
-            })
+        # Return Figure elements (not extracted images)
+        # If figure_elements exist, use them; otherwise fall back to extracted images
+        if generator.figure_elements:
+            images_info = []
+            for fig in generator.figure_elements:
+                images_info.append({
+                    'id': f"figure_{fig['page_num']}_{fig['figure_index']}",
+                    'page_num': fig['page_num'],
+                    'img_index': fig['figure_index'],
+                    'width': fig.get('width', 0),
+                    'height': fig.get('height', 0),
+                    'ext': 'png',
+                    'source': 'figure',
+                    'filename': f"Figure {fig['figure_index']} (Page {fig['page_num']})",
+                    'alt_text': fig['alt_text'],
+                    'image_url': None,  # Figure elements don't have direct image URLs
+                    'decorative': False,
+                    'generated': True
+                })
+        else:
+            # Fallback: use extracted images info
+            images_info = []
+            for img in generator.images_info:
+                images_info.append({
+                    'id': f"img_{img['page_num']}_{img['img_index']}",
+                    'page_num': img['page_num'],
+                    'img_index': img['img_index'],
+                    'width': img['width'],
+                    'height': img['height'],
+                    'ext': img['ext'],
+                    'source': img['source'],
+                    'filename': img['filename'],
+                    'alt_text': generator.generate_alt_text(img),
+                    'image_url': f"image/{task_id}/{img['filename']}",
+                    'decorative': False,
+                    'generated': True
+                })
         task['images_info'] = images_info
         
         task['status'] = 'completed'

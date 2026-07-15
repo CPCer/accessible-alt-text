@@ -1554,7 +1554,7 @@ function loadResults(taskId) {
         id: img.id,
         name: img.filename,
         page: img.page_num,
-        type: img.source === 'xobject' ? '信息图' : '页面截图',
+        type: img.source === 'figure' ? 'Figure 元素' : (img.source === 'xobject' ? '信息图' : '页面截图'),
         alt: img.alt_text,
         decorative: img.decorative,
         generated: img.generated,
@@ -2027,23 +2027,57 @@ function renderImageList() {
 
 function drawImageThumb(canvas, id) {
   const ctx = canvas.getContext('2d');
-  
+
   if (id === 'img1') drawBarChart(canvas);
   else if (id === 'img2') drawPieChart(canvas);
   else if (id === 'img3') drawTeamPhoto(canvas);
   else if (id === 'img4') drawArchDiagram(canvas);
   else {
+    // For Figure elements and other images without preview
     ctx.fillStyle = '#f3f4f6';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
+    // Draw a document icon for Figure elements
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 2;
+
+    // Draw document outline
+    const x = canvas.width/2 - 30;
+    const y = canvas.height/2 - 35;
+    const w = 60;
+    const h = 70;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y + h);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x + w, y + 15);
+    ctx.lineTo(x + w - 15, y);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    // Folded corner
+    ctx.beginPath();
+    ctx.moveTo(x + w - 15, y);
+    ctx.lineTo(x + w - 15, y + 15);
+    ctx.lineTo(x + w, y + 15);
+    ctx.stroke();
+
+    // Document lines
+    ctx.strokeStyle = '#d1d5db';
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const lineY = y + 25 + i * 12;
+      ctx.moveTo(x + 10, lineY);
+      ctx.lineTo(x + w - 10, lineY);
+    }
+    ctx.stroke();
+
+    // Label
     ctx.fillStyle = '#6b7280';
-    ctx.font = 'bold 12px sans-serif';
+    ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('图片预览', canvas.width/2, canvas.height/2 - 8);
-    
-    ctx.fillStyle = '#9ca3af';
-    ctx.font = '10px sans-serif';
-    ctx.fillText(id, canvas.width/2, canvas.height/2 + 10);
+    ctx.fillText(id.startsWith('figure_') ? 'Figure 元素' : '图片', canvas.width/2, canvas.height - 15);
   }
 }
 

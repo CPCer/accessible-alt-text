@@ -27,6 +27,7 @@ class PDFAltTextGenerator:
         self.failed_count = 0
         self.log_entries = []
         self.figure_alts = []
+        self.figure_elements = []  # Track all Figure elements that got Alt text
     
     def log(self, level, message):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -204,7 +205,9 @@ class PDFAltTextGenerator:
                 if img_info["source"] == "raster":
                     self.figure_alts.append({
                         "page_num": img_info["page_num"],
-                        "alt_text": alt_text
+                        "alt_text": alt_text,
+                        "width": img_info["width"],
+                        "height": img_info["height"]
                     })
             
             except Exception as e:
@@ -213,7 +216,7 @@ class PDFAltTextGenerator:
         
         if self.figure_alts:
             self.log("INFO", "尝试为结构树中的Figure元素添加Alt文本")
-            
+
             if '/StructTreeRoot' in pdf.Root:
                 struct_tree = pdf.Root['/StructTreeRoot']
                 figure_alt_idx = [0]
@@ -232,17 +235,27 @@ class PDFAltTextGenerator:
                             figure_success += 1
                             self.success_count += 1
                             self.log("SUCCESS", f"结构树Figure元素添加Alt文本 ({figure_success}): {alt_text[:50]}...")
-                        
+
+                            # Record Figure element info
+                            self.figure_elements.append({
+                                'page_num': self.figure_alts[alt_idx]["page_num"],
+                                'figure_index': figure_success,
+                                'alt_text': alt_text,
+                                'source': 'figure',
+                                'width': self.figure_alts[alt_idx].get('width', 0),
+                                'height': self.figure_alts[alt_idx].get('height', 0)
+                            })
+
                         if '/K' in item:
                             add_alt_to_figure(item['/K'])
-                    
+
                     elif isinstance(item, pikepdf.Array):
                         for child in item:
                             add_alt_to_figure(child)
-                    
+
                     elif hasattr(item, 'get_object'):
                         add_alt_to_figure(item.get_object())
-                
+
                 add_alt_to_figure(struct_tree)
         
         output_filename = f"{self.pdf_path.stem}_with_alt.pdf"
