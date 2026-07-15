@@ -2,7 +2,7 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from pdf_alt_text import PDFAltTextGenerator
 
@@ -198,6 +198,11 @@ def download_result(task_id):
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "ok", "message": "服务运行正常"}), 200
+
+
+@app.route('/', methods=['GET'])
+def index():
+    return send_file('pdf-alt-text-demo.html')
 
 
 if __name__ == '__main__':
